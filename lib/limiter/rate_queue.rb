@@ -16,17 +16,7 @@ module Limiter
     end
 
     def shift
-      loop do
-        @mutex.synchronize do
-          if @executions < @size
-            @executions += 1
-            break
-          end
-          @thread_queue << Thread.current
-        end
-        sleep
-      end
-
+      reserve_slot
       time = @times.shift
       sleep_until(time + @interval)
 
@@ -41,6 +31,19 @@ module Limiter
     end
 
     private
+
+    def reserve_slot
+      loop do
+        @mutex.synchronize do
+          if @executions < @size
+            @executions += 1
+            return
+          end
+          @thread_queue << Thread.current
+        end
+        sleep
+      end
+    end
 
     def sleep_until(time)
       interval = time - clock.time
