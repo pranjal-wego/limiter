@@ -28,6 +28,8 @@ Gem::Specification.new do |spec|
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
+  spec.add_dependency("concurrent-ruby")
+
   spec.add_development_dependency("bundler")
   spec.add_development_dependency("code-scanning-rubocop", "~> 0.6.1")
   spec.add_development_dependency("minitest", "~> 5.20")
