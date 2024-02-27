@@ -7,8 +7,9 @@ module Limiter
 
       mixin = Module.new do
         define_method(method) do |*args, **options, &blk|
-          options.empty? ? super(*args, &blk) : super(*args, **options, &blk)
-          queue.shift
+          queue.shift do
+            options.empty? ? super(*args, &blk) : super(*args, **options, &blk)
+          end
         end
       end
 

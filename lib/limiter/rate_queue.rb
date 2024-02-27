@@ -4,39 +4,40 @@ module Limiter
   class RateQueue
     EPOCH = 0.0
 
-    def initialize(size, interval: 60, balanced: false, &blk)
+    def initialize(size, interval: 60, &blk)
       @size = size
       @interval = interval
-      @executions = Concurrent::AtomicFixnum.new
-
-      @balanced = balanced
+      @thread_queue = []
+      @times = Concurrent::Array.new(@size, EPOCH)
+      @executions = 0
 
       @mutex = Mutex.new
       @blk = blk
-
-      reset
-    end
-
-    def reset
-      @mutex.synchronize do
-        @ring = @balanced ? balanced_ring : unbalanced_ring
-        @head = 0
-      end
     end
 
     def shift
-      time = nil
-
-      @mutex.synchronize do
-        time = @ring[@head]
-
-        sleep_until(time + @interval)
-
-        @ring[@head] = clock.time
-        @head = (@head + 1) % @size
+      loop do
+        @mutex.synchronize do
+          if @executions < @size
+            @executions += 1
+            break
+          end
+          @thread_queue << Thread.current
+        end
+        sleep
       end
 
-      time
+      time = @times.shift
+      sleep_until(time + @interval)
+
+      yield
+
+      @times << clock.time
+
+      @mutex.synchronize do
+        @executions -= 1
+        @thread_queue.shift&.wakeup
+      end
     end
 
     private
@@ -53,20 +54,5 @@ module Limiter
       Clock
     end
 
-    def unbalanced_ring
-      Array.new(@size, EPOCH)
-    end
-
-    def balanced_ring
-      (0...@size).map { |i| base_time + (gap * i) }
-    end
-
-    def gap
-      @interval.to_f / @size.to_f
-    end
-
-    def base_time
-      clock.time - @interval
-    end
   end
 end
