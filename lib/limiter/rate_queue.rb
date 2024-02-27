@@ -8,7 +8,7 @@ module Limiter
       @size = size
       @interval = interval
       @thread_queue = []
-      @times = Concurrent::Array.new(@size, EPOCH)
+      @ring = Concurrent::Array.new(@size, EPOCH)
       @executions = 0
 
       @mutex = Mutex.new
@@ -17,17 +17,18 @@ module Limiter
 
     def shift
       reserve_slot
-      time = @times.shift
+      time = @ring.shift
       sleep_until(time + @interval)
 
-      yield
+      ret_val = yield
 
-      @times << clock.time
+      @ring << clock.time
 
       @mutex.synchronize do
         @executions -= 1
         @thread_queue.shift&.wakeup
       end
+      ret_val
     end
 
     private
@@ -56,6 +57,5 @@ module Limiter
     def clock
       Clock
     end
-
   end
 end
