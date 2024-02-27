@@ -7,6 +7,7 @@ module Limiter
     def initialize(size, interval: 60, balanced: false, &blk)
       @size = size
       @interval = interval
+      @executions = Concurrent::AtomicFixnum.new
 
       @balanced = balanced
 
